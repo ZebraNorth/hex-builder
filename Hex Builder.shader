@@ -2,6 +2,7 @@
 {
     Properties
     {
+        // Standard shader options.
         _MainTex("Albedo (RGB)", 2D) = "white" {}
         [HDR] _Color("Color", Color) = (1,1,1,1)
         [NoScaleOffset] _MetallicMap("Metallic Map", 2D) = "black" {}
@@ -11,6 +12,8 @@
         [NoScaleOffset][Normal] _NormalMap("Normal Map", 2D) = "bump" {}
         [NoScaleOffset]_EmissionMap("Emission Map", 2D) = "black" {}
         [HDR] _EmissionTint("Emission Tint", Color) = (0, 0, 0, 1)
+
+        // Centre, y-axis scale, and rotation for the projection cylinder.
         _Centre("Centre", Vector) = (0, 0, 0, 0)
         _Height("Height", float) = 2
         _Rotation("Rotation", Vector) = (0, 0, 0, 0)
@@ -21,7 +24,8 @@
         _Warp("Warp", Range(0, 1)) = 0
         _FadeWidth("Fade Width", Range(0, 1)) = 0.5
 
-        t ("Animation Time", Range(0, 1)) = 0
+        // Animation time.
+        t("Animation Time", Range(0, 1)) = 0
     }
     SubShader
     {
@@ -63,10 +67,10 @@
         float _FadeWidth;
 
         // Animation.
-        float t;
         float4 _Centre;
         float _Height;
         float3 _Rotation;
+        float t;
 
         // Add instancing support for this shader. You need to check 'Enable Instancing' on materials that use the shader.
         // See https://docs.unity3d.com/Manual/GPUInstancing.html for more information about instancing.
@@ -75,21 +79,33 @@
             // put more per-instance properties here
         UNITY_INSTANCING_BUFFER_END(Props)
 
+        /**
+         * Map a value from one range to another.
+         *
+         * @param value   The value to be remapped.
+         * @param fromMin The minimum value of the input range.
+         * @param fromMax The maximum value of the input range.
+         * @param toMin   The minimum value of the output range.
+         * @param toMax   The maximum value of the output range.
+         *
+         * @return Returns a value between toMin and toMax.
+         */
         float map(float value, float fromMin, float fromMax, float toMin, float toMax)
         {
             float fromSpan = fromMax - fromMin;
             float toSpan = toMax - toMin;
+
             return (value - fromMin) / fromSpan * toSpan + toMin;
         }
 
         /**
          * Build a rotation matrix.
          *
-         * @param float roll  Rotation around the x axis in radians.
-         * @param float pitch Rotation around the y axis in radians.
-         * @param float yaw   Rotation around the z axis in radians.
+         * @param roll  Rotation around the x axis in radians.
+         * @param pitch Rotation around the y axis in radians.
+         * @param yaw   Rotation around the z axis in radians.
          *
-         * @return mat3 Returns a rotation matrix with the given Euler angles.
+         * @return Returns a rotation matrix with the given Euler angles.
          */
         float3x3 rotationMatrix3d(float roll, float pitch, float yaw)
         {
@@ -153,7 +169,6 @@
             o.Alpha = c.a;
 
             float clipHeight = map(t, 0, 1, -1, 1);
-            o.Albedo.rgb = IN.objectSpacePosition.xyz;
 
             // Cylindrical projection:
             // UV.y = Object.y.  UV.x = Angle around a circle in the XZ plane.
@@ -161,14 +176,10 @@
             cuv.x = atan2(IN.objectSpacePosition.z, IN.objectSpacePosition.x);
             cuv.x = map(cuv.x, -PI, PI, 0, 1);
             cuv.y = map(IN.objectSpacePosition.y, -1, 1, 0, 1);
-            
-            o.Albedo.b = 0;
-            o.Albedo.rg = cuv;
-
 
             // Hexagons.
 
-                // Get the input UV coordinate.
+            // Get the input UV coordinate.
             float hexScale = _Hexagons + 4;
             float2 uv = cuv * hexScale;
 
@@ -198,8 +209,6 @@
             // Recalculate uv so it is relative to the hexagon centre;
             hexUv = uv - uvIndex * float2(2, 1.5);
             hexUv.x -= 1 - (uvIndex.y & 1);
-
-            o.Albedo.rg = uvIndex / hexScale;
 
             float fadeWidth = _FadeWidth;
             float2 centrePos = (uvIndex * float2(2, 1.5) / hexScale);
